@@ -62,11 +62,9 @@ class Config():
         if "API_SECRET" in os.environ: self.API_SECRET = os.environ["API_SECRET"]
 
         self.upstream_dns_servers = []
-        for i in self.UPSTREAM_DNS.split(","):
-            self.upstream_dns_servers.append(i.strip())
         self.external_dns_servers = []
-        for i in self.EXTERNAL_DNS.split(","):
-            self.external_dns_servers.append(i.strip())
+        for i in self.UPSTREAM_DNS.split(","): self.upstream_dns_servers.append(i.strip())
+        for i in self.EXTERNAL_DNS.split(","): self.external_dns_servers.append(i.strip())
         self.apiserver_port = int(self.API_SERVER_PORT)
         self.dnsserver_port = int(self.DNS_SERVER_PORT)
         # Sequence
@@ -351,10 +349,6 @@ class DNSQuery:
         self.domain = self.domain.decode("ascii")
 
 
-DNS_HEADER_LENGTH = 12
-
-######## DNS Resp parts
-# DNS response generating.
 class DNSResponse:
     """
     DNS Response Packet Generating
@@ -438,7 +432,7 @@ class DNSResponse:
         # Get number of questions from header's QDCOUNT
         n = (data[4] << 8) + data[5]
         # Where we actually read in data? Start at beginning of question sections.
-        pointer = DNS_HEADER_LENGTH
+        pointer = 12 # DNS_HEADER_LENGTH = 2
         # Read each question section
         for i in range(n):
             question = {
