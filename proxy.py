@@ -1,10 +1,10 @@
 #!python
 # -*- encoding: utf-8 -*-
-#*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+# *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 # Dynamic Firewall Support HTTP/HTTPS blocking
-#*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+# *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 # Code by Jioh L. Jung
-#*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+# *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 
 import sys
 import re
@@ -30,9 +30,6 @@ import socket
 import threading
 
 
-# from flask import Flask
-# from flask_restful import Resource, Api, reqparse
-
 # Global config
 # Default parameters
 
@@ -42,16 +39,17 @@ class Config():
     Values are setup by ENV variable.
     values are seperated by ','
     """
+
     def __init__(self):
         # DNS Proxy. (only support A Record)
-        self.UPSTREAM_DNS = "8.8.8.8,1.1.1.1"           # Default Upstream DNS Server
-        self.EXTERNAL_DNS = "8.8.8.8,1.1.1.1"           # Default Upstream DNS Server
-        self.ENDPOINT_URL = ""                          #
-        self.PROXY_PORTS = "80,443"                     # HTTPS/TLS (SNI), HTTP(Host) Proxy ports
-        self.LOGGER_URL = ""                            # Not yet supported
-        self.API_SERVER_PORT = "5555"                   # Simple API Server Ports
-        self.DNS_SERVER_PORT = "53"                     # DNS Server (only UDP)
-        self.API_SECRET = ""                            # API Secret Passphase
+        self.UPSTREAM_DNS = "8.8.8.8,1.1.1.1"  # Default Upstream DNS Server to return to client
+        self.EXTERNAL_DNS = "8.8.8.8,1.1.1.1"  # Default DNS Server to connect external
+        self.ENDPOINT_URL = ""  #
+        self.PROXY_PORTS = "80,443"  # HTTPS/TLS (SNI), HTTP(Host) Proxy ports
+        self.LOGGER_URL = ""  # Not yet supported
+        self.API_SERVER_PORT = "5555"  # Simple API Server Ports
+        self.DNS_SERVER_PORT = "53"  # DNS Server (only UDP)
+        self.API_SECRET = ""  # API Secret Passphase
 
         # Initialize values by Env val
         if "UPSTREAM_DNS" in os.environ: self.UPSTREAM_DNS = os.environ["UPSTREAM_DNS"]
@@ -73,12 +71,14 @@ class Config():
         self.dnsserver_port = int(self.DNS_SERVER_PORT)
         # Sequence
 
+
 class IPCheck():
     """
     Client IP Checker. only allowed IP networks will allow.
     IP networks can be '0.0.0.0/0' or '10.1.2.0/24'
     Warn: IP network is not IP Address. if you set '10.1.2.1/24' -> You will get ERROR!!!
     """
+
     def __init__(self):
         self.allows = []
 
@@ -107,10 +107,10 @@ class IPCheck():
 
 
 class Rules():
-    '''
+    """
     Allow or Deny Target Host Rule Engine
     Target Host Name can be use with Regular Expression.
-    '''
+    """
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -173,7 +173,7 @@ class Rules():
 
         self.lock.acquire()
         for i in self.rules:
-            if i["regex"] == False:
+            if not i["regex"]:
                 if i["domain"] == domain_tmp:
                     res_found = True
             else:
@@ -191,16 +191,18 @@ class Rules():
         self.lock.release()
         return (res_found, res_allowed, res_upstream, res_id, res_domain, res_regex)
 
+
 config = Config()
 ipcheck = IPCheck()
 rule = Rules()
 
+
 # IP Address Checker.
 def get_external_ip():
-    '''
+    """
     Get External IP Address (Maybe public IP Address)
     :return: IP Address(string)
-    '''
+    """
     if "EXT_IP" in os.environ:
         return os.environ["EXT_IP"]
     site = urllib.request.Request("http://checkip.dyndns.org/")
@@ -211,10 +213,10 @@ def get_external_ip():
 
 
 def get_local_ip():
-    '''
+    """
     Get Internal Self IP Address(maybe private IP Address)
     :return: IP Address(string)
-    '''
+    """
     if "SELF_IP" in os.environ:
         return os.environ["SELF_IP"]
     return [(s.connect(('8.8.8.8', 80)), s.getsockname()[0], s.close()) \
@@ -222,14 +224,14 @@ def get_local_ip():
 
 
 def query_dns(domain, types="A", single_ip=True, use_upstream=True):
-    '''
+    """
     Ask DNS to upstream Server and acquire DNS record.
     :param domain: domain name to lookup
     :param types: type of DNS record(string), you can set 'A', 'AAAA', 'MX', 'NX'.....
     :param single_ip: get only one ip address string or get as list?
     :param use_upstream: want to use query to upstream?
     :return: single ip string or ip addresses list. or None(not found, or upstream DNS doesn't response)
-    '''
+    """
     resolver = dns.resolver.Resolver()
     if use_upstream:
         resolver.nameservers = config.upstream_dns_servers
@@ -253,11 +255,11 @@ def query_dns(domain, types="A", single_ip=True, use_upstream=True):
 ############################################################
 # Decode Packet (HTTPS/TLS's SNI & HTTP's Host)
 def extract_server_name(packet):
-    '''
+    """
     Decode and Extract Server Name(Information came from Host filed or SNI field). and check packet type
     :param packet: Packet Body which has HTTPS/HTTP Headers.
     :return: (target host(sting), packet type(string). packet type can be 'unknown', 'http', 'https'
-    '''
+    """
     if packet.startswith(b'\x16\x03'):  # TLS Header Detection
         # For SNI Proxy Packet(HTTPS)
         logging.debug("Query is HTTPS")
@@ -302,9 +304,10 @@ def extract_server_name(packet):
 
 # AsyncIO Controller Class
 class Controller(object):
-    '''
+    """
     ASyncIO Server Controller. This Class can control loops, include bootup and cleanup.
-    '''
+    """
+
     def __init__(self, loop=None):
         self._loop = loop or asyncio.get_event_loop()
         self.servers = []  # Servers to close.
@@ -328,9 +331,10 @@ class Controller(object):
 
 # DNS Query parsing. (A record only)
 class DNSQuery:
-    '''
+    """
     Simple DNS Request Packet Decode & Extract(A Record Only)
-    '''
+    """
+
     def __init__(self, data):
         self.data = data
         self.domain = b''
@@ -352,9 +356,10 @@ DNS_HEADER_LENGTH = 12
 ######## DNS Resp parts
 # DNS response generating.
 class DNSResponse:
-    '''
+    """
     DNS Response Packet Generating
-    '''
+    """
+
     def __init__(self, query):
         self.data = query.data
         self.packet = b''
@@ -370,10 +375,9 @@ class DNSResponse:
         # Checking Rules
         result_found, result_allowed, result_upstream, res_id, res_domain, res_regex = rule.check_domain(
             query.domain[:-1])
-        if result_found == False:
+        if not result_found:
             print("Result cannot found")
-            # TODO: Set Default Actions
-            result_upstream = False
+
         # logging.debug(">> Matched Request(BLOCK): " + query.domain)
         if result_allowed:
             result_ip = get_local_ip()
@@ -397,15 +401,15 @@ class DNSResponse:
             accepted_questions = []
             for question in all_questions:
                 name = str(b'.'.join(question['name']), encoding='UTF-8')
+                """
+                QTYPE: A:\x00\x01 / AAAA: \x00\x1C / MX: \x00\x0F / NS: \x00\x02
+                https://en.wikipedia.org/wiki/List_of_DNS_record_types
+                """
                 if question['qtype'] == b'\x00\x01' and question['qclass'] == b'\x00\x01':
                     accepted_questions.append(question)
                     print('\033[32m{}\033[39m - QT:{}/QC:{}'.format(name, question['qtype'], question['qclass']))
                 else:
                     print('\033[31m{}\033[39m - QT:{}/QC:{}'.format(name, question['qtype'], question['qclass']))
-                """
-                QTYPE: A:\x00\x01 / AAAA: \x00\x1C / MX: \x00\x0F / NS: \x00\x02
-                https://en.wikipedia.org/wiki/List_of_DNS_record_types
-                """
 
             self.packet = (
                     self.dns_response_header(self.data) +
@@ -543,9 +547,10 @@ class DNSResponse:
 
 # DNS Packet Handler.
 class DNSPacketHandler:
-    '''
+    """
     DNS Packet Handler.
-    '''
+    """
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -554,7 +559,7 @@ class DNSPacketHandler:
         query_res = DNSQuery(data)
 
         # Client Authentication
-        if ipcheck.check_allowed(address[0]) == False:# Authentication
+        if not ipcheck.check_allowed(address[0]):  # Authentication
             logging.debug('>> [NOT ALLOWED] DNS Request from: %s' % (host,))
             return
 
@@ -570,11 +575,11 @@ class DNSPacketHandler:
 # async def hello(request):
 #    return web.Response(text="Hello, world")
 def check_secret(data):
-    '''
+    """
     While API is called, check Secret token.
     :param data: parsed post parameters
     :return: (Success?(bool), if failed Response JSON struct with error message)
-    '''
+    """
     if len(config.API_SECRET) > 0:
         if not 'secret' in data.keys() or config.API_SECRET != str(data['secret']):
             return (False, web.json_response({'success': False, 'error': "secret is diffrent"}))
@@ -605,7 +610,7 @@ async def add_rule(request):
 
     try:
         ids, domain, types, regexs = int(data['id']), str(data['domain']), int(data['type']), (
-                    str(data['regex']).lower() == "true")
+                str(data['regex']).lower() == "true")
         return web.json_response({'success': rule.add_item(ids, domain, types, regexs)})
     except Exception as e:
         return web.json_response({'success': False, 'error': str(e)})
@@ -632,8 +637,6 @@ async def post_get_all_rules(request):
     res['success'] = True
     return web.json_response(res)
 
-
-#######
 
 async def delete_ipaddr(request):
     # curl -XDELETE 0.0.0.0:5555/ipaddr -D 'addr=10.2.1.0/24'  -v
@@ -662,7 +665,6 @@ async def add_ipaddr(request):
         return web.json_response({'success': False, 'error': str(e)})
 
 
-
 async def get_all_ipaddr(request):
     # curl 0.0.0.0:5555/ipaddr
     if len(config.API_SECRET) > 0:
@@ -686,9 +688,9 @@ async def post_get_all_ipaddr(request):
     res['success'] = True
     return web.json_response(res)
 
-# API Routings
+
+# API Routing
 app = web.Application()
-# app.add_routes([web.get('/rule', hello)])
 app.add_routes([web.delete('/rule', delete_rule)])
 app.add_routes([web.put('/rule', add_rule)])
 app.add_routes([web.post('/rules', post_get_all_rules)])
@@ -701,14 +703,16 @@ app.add_routes([web.get('/ipaddr', get_all_ipaddr)])
 
 
 class RESTServers(object):
-    '''
+    """
     REST Server with aiohttp. with low level controlling
-    '''
+    """
+
     def __init__(self, controller, app, host, port):
         self._app, self.controller, self._host, self._port = app, controller, host, port
 
     async def aio_server_main(self):
-        # with App - https://aiohttp.readthedocs.io/en/stable/web_reference.html#aiohttp-web-app-runners-reference
+        # with AppRunner
+        # https://aiohttp.readthedocs.io/en/stable/web_reference.html#aiohttp-web-app-runners-reference
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()
         self._site = web.TCPSite(self._runner, self._host, self._port)
@@ -721,9 +725,10 @@ class RESTServers(object):
 
 # DNS Server Class
 class DNSServers(object):
-    '''
+    """
     DNS Server with AsyncIO
-    '''
+    """
+
     def __init__(self, controller, host, port):
         self.controller, self._host, self._port = controller, host, port
         self._server_core = self.controller.get_loop().create_datagram_endpoint(
@@ -756,9 +761,10 @@ async def dial(client_conn, server_conn):
 
 # Proxy Server Class
 class ProxyServers(object):
-    '''
+    """
     SNI Proxy Server
-    '''
+    """
+
     def __init__(self, controller, host, port):
         self.controller, self._host, self._port = controller, host, port
         self._server_core = asyncio.start_server(self.handle_connection, port=self._port)
@@ -789,7 +795,7 @@ class ProxyServers(object):
         peername = writer.get_extra_info('peername')
 
         # IP Check
-        if ipcheck.check_allowed(peername[0]) == False:
+        if not ipcheck.check_allowed(peername[0]):
             writer.close()
             logging.info('Client IP is Banned.')
             return
