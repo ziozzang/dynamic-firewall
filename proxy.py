@@ -30,6 +30,9 @@ import socket
 import threading
 
 
+# from flask import Flask
+# from flask_restful import Resource, Api, reqparse
+
 # Global config
 # Default parameters
 
@@ -42,6 +45,7 @@ class Config():
     def __init__(self):
         # DNS Proxy. (only support A Record)
         self.UPSTREAM_DNS = "8.8.8.8,1.1.1.1"           # Default Upstream DNS Server
+        self.EXTERNAL_DNS = "8.8.8.8,1.1.1.1"           # Default Upstream DNS Server
         self.ENDPOINT_URL = ""                          #
         self.PROXY_PORTS = "80,443"                     # HTTPS/TLS (SNI), HTTP(Host) Proxy ports
         self.LOGGER_URL = ""                            # Not yet supported
@@ -50,7 +54,8 @@ class Config():
         self.API_SECRET = ""                            # API Secret Passphase
 
         # Initialize values by Env val
-        if "UPSTREAM_DNS" in os.environ: self.PSTREAM_DNS = os.environ["UPSTREAM_DNS"]
+        if "UPSTREAM_DNS" in os.environ: self.UPSTREAM_DNS = os.environ["UPSTREAM_DNS"]
+        if "EXTERNAL_DNS" in os.environ: self.EXTERNAL_DNS = os.environ["EXTERNAL_DNS"]
         if "ENDPOINT_URL" in os.environ: self.ENDPOINT_URL = os.environ["ENDPOINT_URL"]
         if "PROXY_PORTS" in os.environ: self.PROXY_PORTS = os.environ["PROXY_PORTS"]
         if "LOGGER_URL" in os.environ: self.LOGGER_URL = os.environ["LOGGER_URL"]
@@ -58,9 +63,12 @@ class Config():
         if "DNS_SERVER_PORT" in os.environ: self.DNS_SERVER_PORT = os.environ["DNS_SERVER_PORT"]
         if "API_SECRET" in os.environ: self.API_SECRET = os.environ["API_SECRET"]
 
-        self.dns_servers = []
+        self.upstream_dns_servers = []
         for i in self.UPSTREAM_DNS.split(","):
-            self.dns_servers.append(i.strip())
+            self.upstream_dns_servers.append(i.strip())
+        self.external_dns_servers = []
+        for i in self.EXTERNAL_DNS.split(","):
+            self.external_dns_servers.append(i.strip())
         self.apiserver_port = int(self.API_SERVER_PORT)
         self.dnsserver_port = int(self.DNS_SERVER_PORT)
         # Sequence
@@ -213,16 +221,20 @@ def get_local_ip():
             for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
 
 
-def query_dns_to_upstream(domain, types="A", single_ip=True):
+def query_dns(domain, types="A", single_ip=True, use_upstream=True):
     '''
     Ask DNS to upstream Server and acquire DNS record.
     :param domain: domain name to lookup
     :param types: type of DNS record(string), you can set 'A', 'AAAA', 'MX', 'NX'.....
     :param single_ip: get only one ip address string or get as list?
+    :param use_upstream: want to use query to upstream?
     :return: single ip string or ip addresses list. or None(not found, or upstream DNS doesn't response)
     '''
     resolver = dns.resolver.Resolver()
-    resolver.nameservers = config.dns_servers
+    if use_upstream:
+        resolver.nameservers = config.upstream_dns_servers
+    else:
+        resolver.nameservers = config.external_dns_servers
     try:
         ans = resolver.query(domain, types)
         if single_ip:
@@ -369,7 +381,7 @@ class DNSResponse:
 
         # Need Upstream Resolving
         elif result_upstream:
-            result_ip = query_dns_to_upstream(query.domain)
+            result_ip = query_dns(query.domain, use_upstream=True)
             if result_ip is None:
                 logging.debug(">> Unable to parse request")
             else:
@@ -798,7 +810,7 @@ class ProxyServers(object):
             logging.info('Not Allowed Host.')
             return
 
-        target_server_ip = query_dns_to_upstream(server_host)
+        target_server_ip = query_dns(server_host, use_upstream=False)
         if target_server_ip is None:
             # Cannot Resolve Host
             logging.info('Host Cannot Resolved "{}"'.format(server_host))
