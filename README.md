@@ -1,6 +1,6 @@
 # dynamic-firewall
 Dynamic Firewall with whitelist/blacklist based HTTP/HTTPS proxy firewall.
-
+Fully supported FQDN firewall http/https also dns.
 
 
 * **working in progress.**
@@ -10,7 +10,7 @@ Jioh L. Jung <ziozzang@gmail.com>
 
 
 # What is this?
-* This is Proxy Server with whitelisting policy.
+* This is Proxy Server with FQDN(Exact matching, Substring matching, wildcard matching...) whitelisting policy.
 * You can use this proxy as dynamic firewalls. and it can proxing
 * no need to setup Root-Certification. it's not required certification. it can only check SNI field on HTTPS/TLS packet and Host Header on HTTP packet.
 * This server also act as DNS Server Proxy. but current support only A record.
