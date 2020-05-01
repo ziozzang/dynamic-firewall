@@ -6,7 +6,11 @@ WORKDIR /proxy
 RUN pip install -r requirements.txt
 
 # Expose Service ports
-EXPOSE 53,80,443,5000
+EXPOSE 53
+EXPOSE 80
+EXPOSE 443
+EXPOSE 5555
+
 
 ENTRYPOINT ["python"]
 CMD ["proxy.py"]
